@@ -19,6 +19,11 @@ assert sub in [1,2,5,7]
 
 from scipy.stats import pearsonr,binom,linregress
 import numpy as np
+import warnings
+warnings.filterwarnings("ignore", message=".*Intel MKL WARNING.*")
+os.environ["MKL_VERBOSE"] = "0"  # Suppress MKL warnings
+os.environ["MKL_THREADING_LAYER"] = "GNU"  # Prevent threading issues
+os.environ["MKL_DEBUG_CPU_TYPE"] = "5"
 def pairwise_corr_all(ground_truth, predictions):
     r = np.corrcoef(ground_truth, predictions)#cosine_similarity(ground_truth, predictions)#
     r = r[:len(ground_truth), len(ground_truth):]  # rows: groundtruth, columns: predicitons

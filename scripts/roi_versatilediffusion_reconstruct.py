@@ -33,6 +33,14 @@ assert sub in [1,2,5,7]
 strength = float(args.diff_str)
 mixing = float(args.mix_str)
 
+if torch.cuda.is_available():
+    device0 = torch.device('cuda:0')  # First CUDA GPU
+    device1 = torch.device('cuda:1') if torch.cuda.device_count() > 1 else device0  # Use second GPU if available
+elif torch.backends.mps.is_available():
+    device0 = device1 = torch.device('mps')  # MPS does not support multiple devices
+else:
+    device0 = device1 = torch.device('cpu')  # Default to CPU
+
 
 def regularize_image(x):
         BICUBIC = PIL.Image.Resampling.BICUBIC
@@ -64,8 +72,8 @@ net.load_state_dict(sd, strict=False)
 
 
 # Might require editing the GPU assignments due to Memory issues
-net.clip.cuda(0)
-net.autokl.cuda(0)
+net.clip.to(device0)
+net.autokl.to(device0)
 
 #net.model.cuda(1)
 sampler = sampler(net)
@@ -74,10 +82,10 @@ sampler = sampler(net)
 batch_size = 1
 
 pred_text = np.load('data/predicted_features/subj{:02d}/nsd_cliptext_roi_nsdgeneral.npy'.format(sub))
-pred_text = torch.tensor(pred_text).half().cuda(1)
+pred_text = torch.tensor(pred_text).half().to(device1)
 
 pred_vision = np.load('data/predicted_features/subj{:02d}/nsd_clipvision_roi_nsdgeneral.npy'.format(sub))
-pred_vision = torch.tensor(pred_vision).half().cuda(1)
+pred_vision = torch.tensor(pred_vision).half().to(device1)
 
 
 n_samples = 1
@@ -93,13 +101,14 @@ if not os.path.exists(res_dir):
    os.makedirs(res_dir)
 
 torch.manual_seed(0)
+print(len(pred_vision))
 for im_id in range(len(pred_vision)):
 
     zim = Image.open('results/vdvae/subj{:02d}/roi/{}.png'.format(sub,im_id))
    
     zim = regularize_image(zim)
     zin = zim*2 - 1
-    zin = zin.unsqueeze(0).cuda(0).half()
+    zin = zin.unsqueeze(0).to(device0).half()
 
     init_latent = net.autokl_encode(zin)
     
@@ -107,19 +116,19 @@ for im_id in range(len(pred_vision)):
     #strength=0.75
     assert 0. <= strength <= 1., 'can only work with strength in [0.0, 1.0]'
     t_enc = int(strength * ddim_steps)
-    device = 'cuda:0'
-    z_enc = sampler.stochastic_encode(init_latent, torch.tensor([t_enc]).to(device))
+    # device = 'cuda:0'
+    z_enc = sampler.stochastic_encode(init_latent, torch.tensor([t_enc]).to(device0))
     #z_enc,_ = sampler.encode(init_latent.cuda(1).half(), c.cuda(1).half(), torch.tensor([t_enc]).to(sampler.model.model.diffusion_model.device))
 
     dummy = ''
     utx = net.clip_encode_text(dummy)
-    utx = utx.cuda(1).half()
+    utx = utx.to(device1).half()
     
-    dummy = torch.zeros((1,3,224,224)).cuda(0)
+    dummy = torch.zeros((1,3,224,224)).to(device0)
     uim = net.clip_encode_vision(dummy)
-    uim = uim.cuda(1).half()
-    
-    z_enc = z_enc.cuda(1)
+    uim = uim.to(device1).half()
+
+    z_enc = z_enc.to(device1)
 
     h, w = 512,512
     shape = [n_samples, 4, h//8, w//8]
@@ -130,8 +139,9 @@ for im_id in range(len(pred_vision)):
     #c[:,0] = u[:,0]
     #z_enc = z_enc.cuda(1).half()
     
-    sampler.model.model.diffusion_model.device='cuda:1'
-    sampler.model.model.diffusion_model.half().cuda(1)
+    sampler.model.model.diffusion_model.device = device1
+    # sampler.model.model.diffusion_model.half().cuda(1)
+    sampler.model.model.diffusion_model.to(device1).half()
     #mixing = 0.4
     
     z = sampler.decode_dc(
@@ -145,7 +155,7 @@ for im_id in range(len(pred_vision)):
         second_ctype='prompt',
         mixed_ratio=(1-mixing), )
     
-    z = z.cuda(0).half()
+    z = z.to(device0).half()
     x = net.autokl_decode(z)
     color_adj='None'
     #color_adj_to = cin[0]

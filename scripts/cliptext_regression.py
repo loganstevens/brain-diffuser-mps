@@ -44,6 +44,7 @@ print("Training Regression")
 reg_w = np.zeros((num_embed,num_dim,num_voxels)).astype(np.float32)
 reg_b = np.zeros((num_embed,num_dim)).astype(np.float32)
 pred_clip = np.zeros_like(test_clip)
+print(num_embed)
 for i in range(num_embed):
     reg = skl.Ridge(alpha=100000, max_iter=50000, fit_intercept=True)
     reg.fit(train_fmri, train_clip[:,i])

@@ -28,7 +28,9 @@ net = get_model()(cfgm)
 sd = torch.load(pth, map_location='cpu')
 net.load_state_dict(sd, strict=False)    
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+# device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda' if torch.cuda.is_available() else 'mps' if torch.backends.mps.is_available() else 'cpu')
+print(f"-------- Using device: {device} --------")
 net.clip = net.clip.to(device)
    
 train_caps = np.load('data/processed_data/subj{:02d}/nsd_train_cap_sub{}.npy'.format(sub,sub)) 

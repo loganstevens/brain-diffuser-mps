@@ -117,8 +117,11 @@ def sample_from_hier_latents(latents,sample_ids):
   sample_ids = [id for id in sample_ids if id<len(latents[0])]
   layers_num=len(latents)
   sample_latents = []
+  device = torch.device('mps' if torch.backends.mps.is_available() else 
+                      ('cuda' if torch.cuda.is_available() else 'cpu'))
   for i in range(layers_num):
-    sample_latents.append(torch.tensor(latents[i][sample_ids]).float().cuda())
+    # sample_latents.append(torch.tensor(latents[i][sample_ids]).float().cuda())
+    sample_latents.append(torch.tensor(latents[i][sample_ids]).float().to(device))
   return sample_latents
 
 #samples = []

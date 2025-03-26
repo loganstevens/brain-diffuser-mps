@@ -12,7 +12,7 @@ import torchvision.transforms as transforms
 from torch.utils.data import DataLoader, Dataset
 import torchvision.transforms as T
 from PIL import Image
-import clip
+import clip  # OpenAI's CLIP
 
 import skimage.io as sio
 from skimage import data, img_as_float
@@ -79,11 +79,20 @@ net_list = [
     ('swav','avgpool')
     ]
 
-device = 1
+# device = 1
 net = None
 batchsize=64
 
+# Determine the best available device (MPS > CUDA > CPU)
+# if torch.backends.mps.is_available():
+#     device = torch.device('mps')
+# elif torch.cuda.is_available():
+#     device = torch.device('cuda')  # Defaults to CUDA device 0
+# else:
+#     device = torch.device('cpu')
 
+device = torch.device('mps' if torch.backends.mps.is_available() else 
+                      'cuda' if torch.cuda.is_available() else 'cpu')
 
 for (net_name,layer) in net_list:
     feat_list = []
@@ -108,7 +117,9 @@ for (net_name,layer) in net_list:
             net.classifier[5].register_forward_hook(fn)
             
     elif net_name == 'clip':
-        model, _ = clip.load("ViT-L/14", device='cuda:{}'.format(device))
+        # model, _ = clip.load("ViT-L/14", device='cuda:{}'.format(device))
+        model, _ = clip.load("ViT-L/14", device=device)  # Use detected device
+        print("CLIP model loaded successfully on:", device)
         net = model.visual
         net = net.to(torch.float32)
         if layer==7:
@@ -126,12 +137,12 @@ for (net_name,layer) in net_list:
         net = torch.hub.load('facebookresearch/swav:main', 'resnet50')
         net.avgpool.register_forward_hook(fn) 
     net.eval()
-    net.cuda(device)    
+    net.to(device)    
     
     with torch.no_grad():
         for i,x in enumerate(loader):
             print(i*batchsize)
-            x = x.cuda(device)
+            x = x.to(device)
             _ = net(x)
     if net_name == 'clip':
         if layer == 7 or layer == 12:
