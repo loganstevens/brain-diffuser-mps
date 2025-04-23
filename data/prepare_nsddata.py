@@ -4,6 +4,7 @@ import numpy as np
 import h5py
 import scipy.io as spio
 import nibabel as nib
+import matplotlib.pyplot as plt
 
 import argparse
 parser = argparse.ArgumentParser(description='Argument Parser')
